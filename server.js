@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports, no-undef */
-
-const dns = require('dns');
+/* eslint-disable no-unused-vars */
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -14,34 +12,18 @@ require('dotenv').config();
 
 const app = express();
 
-// cPanel often sits behind a reverse proxy; trust proxy helps with correct client IP and URL detection.
+// cPanel / Render compatibility
 app.set('trust proxy', 1);
 
 // ==============================
 // ENV
 // ==============================
-// cPanel injects PORT; do NOT force a fallback port on production/cPanel.
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI;
-
-const CLIENT_URL = process.env.CLIENT_URL || 'https://provisa.com.np';
-
-if (MONGODB_URI?.startsWith('mongodb+srv://')) {
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
-  console.log('[server] using DNS servers', dns.getServers());
-}
-
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // ==============================
-// VALIDATION
-// ==============================
-if (!MONGODB_URI) {
-  console.error('❌ MONGODB_URI missing in .env');
-}
-
-
-// ==============================
-// CREATE UPLOAD FOLDERS (cPanel working-directory safe)
+// CREATE UPLOAD FOLDERS
 // ==============================
 const uploadsRoot = path.join(__dirname, 'uploads');
 const uploadsBlogsDir = path.join(uploadsRoot, 'blogs');
@@ -53,13 +35,10 @@ fs.mkdirSync(uploadsBlogsDir, { recursive: true });
 fs.mkdirSync(uploadsTeamDir, { recursive: true });
 fs.mkdirSync(uploadsUniversitiesDir, { recursive: true });
 
-
-
 // ==============================
 // SECURITY
 // ==============================
 app.use(helmet());
-
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -73,11 +52,13 @@ app.use(
 app.use(morgan('dev'));
 
 // ==============================
-// CORS (PRODUCTION SAFE)
+// CORS
 // ==============================
 app.use(
   cors({
     origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+
       const allowedOrigins = [
         CLIENT_URL,
         'https://provisa.com.np',
@@ -85,18 +66,18 @@ app.use(
         'http://localhost:5173',
         'http://localhost:8080',
         'http://localhost:8081',
+        'http://localhost:4000',
       ];
 
-      if (!origin) return callback(null, true);
+      // Render deployments often use *.onrender.com
+      const isRender = origin.endsWith('.onrender.com');
 
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('.provisa.com.np')
-      ) {
+      if (allowedOrigins.includes(origin) || isRender) {
         return callback(null, true);
       }
 
-      return callback(null, true); // prevent production crash
+      // Don’t crash the server because of CORS.
+      return callback(null, true);
     },
     credentials: true,
   })
@@ -113,38 +94,24 @@ app.use(express.urlencoded({ extended: true }));
 // ==============================
 app.use('/uploads', express.static(uploadsRoot));
 
-
 // ==============================
 // BASIC ROUTES
 // ==============================
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.get('/admin-test', (req, res) => res.send('✅ Admin system working'));
 
-app.get('/admin-test', (req, res) => {
-  res.send('✅ Admin system working');
-});
-
-// ==============================
-// FRONTEND FIX (/admin ROUTE FIX)
-// ==============================
-// IMPORTANT: prevents 500 error on /admin
-// ==============================
-const distPath = path.join(__dirname, 'dist');
-const distIndexPath = path.join(distPath, 'index.html');
-
-// Diagnostic: identify why root '/' is failing (useful for logs).
+// Diagnostic (useful for deploy debugging)
 app.get('/__diag/root', (req, res) => {
-  const distExists = fs.existsSync(distPath);
-  const distIndexExists = fs.existsSync(distIndexPath);
+  const distPath = path.join(__dirname, 'dist');
+  const distIndexPath = path.join(distPath, 'index.html');
 
   res.status(200).json({
-    distExists,
-    distIndexExists,
+    distExists: fs.existsSync(distPath),
+    distIndexExists: fs.existsSync(distIndexPath),
     mongoUriConfigured: !!MONGODB_URI,
     mongodbReady: mongoose.connection.readyState === 1,
   });
 });
-
-
 
 // ==============================
 // API ROUTES
@@ -165,6 +132,7 @@ app.use('/settings', require('./routes/settings'));
 app.use('/api/blogs', require('./routes/blogs'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/team', require('./routes/team'));
+
 app.use('/api/testimonials', require('./routes/testimonials'));
 app.use('/api/universities', require('./routes/universities'));
 
@@ -179,22 +147,19 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==============================
-const distHasIndex = fs.existsSync(distIndexPath);
+// FRONTEND (dist) - SPA fallback
+// ==============================
+const distPath = path.join(__dirname, 'dist');
+const distIndexPath = path.join(distPath, 'index.html');
 
-
-if (distHasIndex) {
+if (fs.existsSync(distIndexPath)) {
   app.use(express.static(distPath));
 
-  // Serve SPA for any non-API route.
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
-
     res.sendFile(distIndexPath);
   });
 } else {
-  console.log('⚠️ No frontend build found (dist/index.html missing)');
-
-  // Deterministic response for `/` when frontend build is not present.
   app.get('/', (req, res) => {
     res.status(503).send(
       'Frontend build not found on server. Expected backend/dist/index.html'
@@ -202,44 +167,47 @@ if (distHasIndex) {
   });
 }
 
+// ==============================
+// 404 HANDLER
+// ==============================
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+  });
+});
 
 // ==============================
-// ERROR HANDLER
+// GLOBAL ERROR HANDLER
 // ==============================
 app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err.message);
+  // eslint-disable-line no-unused-vars
+  console.error('❌ Error:', err?.message || err);
 
   res.status(500).json({
     success: false,
-    message: err.message || 'Server Error',
+    message: err?.message || 'Server Error',
   });
 });
 
 // ==============================
 // MONGODB CONNECTION
 // ==============================
-if (MONGODB_URI) {
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI missing. API requests requiring DB will fail.');
+} else {
   mongoose
     .connect(MONGODB_URI)
     .then(() => console.log('✅ MongoDB connected'))
     .catch((err) => {
-      // Do not crash the server; allow frontend to load even if Mongo is temporarily down.
-      console.error('❌ MongoDB error:', err.message);
+      console.error('❌ MongoDB error:', err?.message || err);
     });
-} else {
-  console.error('❌ MongoDB not configured (MONGODB_URI missing)');
 }
-
 
 // ==============================
 // START SERVER
 // ==============================
-// cPanel injects PORT. If PORT is missing, fail fast so the operator knows what to fix.
-if (!PORT) {
-  console.error('❌ PORT is missing in environment variables. cPanel did not inject it.');
-} else {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  });
-}
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 

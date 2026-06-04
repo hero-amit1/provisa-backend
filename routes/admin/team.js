@@ -1,6 +1,7 @@
 const express = require('express');
 const Team = require('../../models/Team');
 const auth = require('../../middleware/auth');
+<<<<<<< HEAD
 const multer = require('multer');
 
 const {
@@ -8,16 +9,70 @@ const {
 } = require('../../utils/cloudinaryStorage');
 
 const conditionalUpload = require('../../middleware/conditionalUpload');
+=======
+
+const dotenv = require('dotenv');
+
+const cloudinary = require('cloudinary').v2;
+const {
+  CloudinaryStorage,
+} = require('multer-storage-cloudinary');
+
+const multer = require('multer');
+
+dotenv.config();
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
 const router = express.Router();
 
 // ======================================
+<<<<<<< HEAD
 // CLOUDINARY STORAGE
 // ======================================
 
 const storage = createCloudinaryStorage({
   folder: 'team',
   width: 800,
+=======
+// CLOUDINARY CONFIG
+// ======================================
+
+cloudinary.config({
+  cloud_name:
+    process.env.CLOUDINARY_CLOUD_NAME,
+
+  api_key:
+    process.env.CLOUDINARY_API_KEY,
+
+  api_secret:
+    process.env.CLOUDINARY_API_SECRET,
+});
+
+// ======================================
+// CLOUDINARY STORAGE
+// ======================================
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+
+  params: async (req, file) => ({
+    folder: 'team',
+
+    allowed_formats: [
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+    ],
+
+    transformation: [
+      {
+        width: 800,
+        crop: 'limit',
+      },
+    ],
+  }),
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 });
 
 // ======================================
@@ -56,6 +111,7 @@ const upload = multer({
 });
 
 // ======================================
+<<<<<<< HEAD
 // MULTER MIDDLEWARE
 // ======================================
 
@@ -63,11 +119,42 @@ const uploadMiddleware =
   conditionalUpload(
     upload.single('image')
   );
+=======
+// IMAGE UPLOAD MIDDLEWARE
+// ======================================
+
+const uploadMiddleware = (
+  req,
+  res,
+  next
+) => {
+  upload.single('image')(
+    req,
+    res,
+    (err) => {
+      if (err) {
+        console.error(
+          'Upload error:',
+          err
+        );
+
+        return res.status(400).json({
+          success: false,
+          message: err.message,
+        });
+      }
+
+      next();
+    }
+  );
+};
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
 // ======================================
 // GET ALL TEAM MEMBERS
 // ======================================
 
+<<<<<<< HEAD
 router.get(
   '/',
   auth,
@@ -97,6 +184,32 @@ router.get(
     }
   }
 );
+=======
+router.get('/', auth, async (req, res) => {
+  try {
+    const team = await Team.find()
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: team,
+    });
+  } catch (err) {
+    console.error(
+      'Get team members error:',
+      err
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        err.message ||
+        'Failed to fetch team members',
+    });
+  }
+});
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
 // ======================================
 // CREATE TEAM MEMBER
@@ -109,12 +222,20 @@ router.post(
   async (req, res) => {
     try {
       console.log(
+<<<<<<< HEAD
         'TEAM BODY:',
+=======
+        'CREATE TEAM BODY:',
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         req.body
       );
 
       console.log(
+<<<<<<< HEAD
         'TEAM FILE:',
+=======
+        'CREATE TEAM FILE:',
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         req.file
       );
 
@@ -128,6 +249,10 @@ router.post(
         twitter,
       } = req.body;
 
+<<<<<<< HEAD
+=======
+      // Validation
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       if (!name || !role) {
         return res.status(400).json({
           success: false,
@@ -136,6 +261,7 @@ router.post(
         });
       }
 
+<<<<<<< HEAD
       const teamMember =
         new Team({
           name: name.trim(),
@@ -168,12 +294,45 @@ router.post(
 
       const savedTeamMember =
         await teamMember.save();
+=======
+      const teamMember = new Team({
+        name: name.trim(),
+
+        role: role.trim(),
+
+        bio: bio || '',
+
+        social: {
+          facebook:
+            facebook || '',
+
+          instagram:
+            instagram || '',
+
+          linkedin:
+            linkedin || '',
+
+          twitter:
+            twitter || '',
+        },
+
+        image: req.file
+          ? req.file.path
+          : '',
+      });
+
+      await teamMember.save();
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
       res.status(201).json({
         success: true,
         message:
           'Team member created successfully',
+<<<<<<< HEAD
         data: savedTeamMember,
+=======
+        data: teamMember,
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       });
     } catch (err) {
       console.error(
@@ -213,27 +372,46 @@ router.put(
 
       const updateData = {};
 
+<<<<<<< HEAD
       if (
         req.body.name !== undefined
       ) {
+=======
+      // Name
+      if (req.body.name !== undefined) {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         updateData.name =
           req.body.name.trim();
       }
 
+<<<<<<< HEAD
       if (
         req.body.role !== undefined
       ) {
+=======
+      // Role
+      if (req.body.role !== undefined) {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         updateData.role =
           req.body.role.trim();
       }
 
+<<<<<<< HEAD
       if (
         req.body.bio !== undefined
       ) {
+=======
+      // Bio
+      if (req.body.bio !== undefined) {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         updateData.bio =
           req.body.bio;
       }
 
+<<<<<<< HEAD
+=======
+      // Social Links
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       updateData.social = {
         facebook:
           req.body.facebook || '',
@@ -248,12 +426,19 @@ router.put(
           req.body.twitter || '',
       };
 
+<<<<<<< HEAD
       if (req.file) {
         updateData.image =
           req.file.secure_url ||
           req.file.path ||
           req.file.url ||
           '';
+=======
+      // Image
+      if (req.file) {
+        updateData.image =
+          req.file.path;
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       }
 
       const teamMember =
@@ -339,6 +524,7 @@ router.delete(
   }
 );
 
+<<<<<<< HEAD
 // ======================================
 // MULTER ERROR HANDLER
 // ======================================
@@ -379,4 +565,6 @@ router.use(
   }
 );
 
+=======
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 module.exports = router;

@@ -5,10 +5,6 @@ const Admin = require('../models/Admin');
 
 const router = express.Router();
 
-
-// ==============================
-// ADMIN LOGIN
-// ==============================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -20,8 +16,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const admin = await Admin.findOne({ email: email.toLowerCase().trim() });
-
+    const admin = await Admin.findOne({ email: String(email).toLowerCase().trim() });
     if (!admin) {
       return res.status(404).json({
         success: false,
@@ -30,7 +25,6 @@ router.post('/login', async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(password, admin.password);
-
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -38,28 +32,21 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Dev fallback: allow local development to work even if JWT_SECRET isn't set.
-    // In production, this should be configured properly.
-    let jwtSecret = process.env.JWT_SECRET;
-    const nodeEnv = process.env.NODE_ENV || 'development';
-
-    if (!jwtSecret) {
-      if (nodeEnv === 'production') {
-        return res.status(500).json({
-          success: false,
-          message: 'JWT_SECRET not configured in .env',
-        });
-      }
-
-      jwtSecret = 'dev_jwt_secret_change_me';
-      console.warn(
-        '[auth] JWT_SECRET not configured in .env; using DEV fallback secret'
-      );
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(500).json({
+        success: false,
+        message: 'JWT_SECRET not configured in environment',
+      });
     }
 
     const token = jwt.sign(
-      { id: admin._id, email: admin.email, role: admin.role || 'admin' },
-      jwtSecret,
+      {
+        id: admin._id,
+        email: admin.email,
+        role: admin.role || 'admin',
+      },
+      secret,
       { expiresIn: '7d' }
     );
 
@@ -72,13 +59,14 @@ router.post('/login', async (req, res) => {
         role: admin.role || 'admin',
       },
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
       message: 'Server error',
+      error: err?.message,
     });
   }
 });
 
 module.exports = router;
+

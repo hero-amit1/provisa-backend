@@ -2,12 +2,15 @@ const express = require('express');
 const Testimonial = require('../../models/Testimonial');
 const auth = require('../../middleware/auth');
 
+<<<<<<< HEAD
 const multer = require('multer');
 
 const {
   createCloudinaryStorage,
 } = require('../../utils/cloudinaryStorage');
 
+=======
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 const router = express.Router();
 
 // ======================================
@@ -41,6 +44,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // ======================================
+<<<<<<< HEAD
 // CLOUDINARY STORAGE
 // ======================================
 
@@ -96,6 +100,12 @@ const uploadMiddleware = (req, res, next) => {
 // ======================================
 
 router.post('/', auth, uploadMiddleware, async (req, res) => {
+=======
+// CREATE TESTIMONIAL
+// ======================================
+
+router.post('/', auth, async (req, res) => {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
   try {
     console.log(
       'CREATE TESTIMONIAL BODY:',
@@ -123,6 +133,7 @@ router.post('/', auth, uploadMiddleware, async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
     const testimonial = new Testimonial({
       name: name.trim(),
 
@@ -149,6 +160,33 @@ router.post('/', auth, uploadMiddleware, async (req, res) => {
 
       status: status || 'active',
     });
+=======
+    const testimonial =
+      new Testimonial({
+        name: name.trim(),
+
+        university:
+          university.trim(),
+
+        text: text.trim(),
+
+        rating:
+          Number(rating) || 5,
+
+        image: image || '',
+
+        country: country || '',
+
+        course: course || '',
+
+        featured:
+          featured === true ||
+          featured === 'true',
+
+        status:
+          status || 'active',
+      });
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
     await testimonial.save();
 
@@ -177,7 +215,11 @@ router.post('/', auth, uploadMiddleware, async (req, res) => {
 // UPDATE TESTIMONIAL
 // ======================================
 
+<<<<<<< HEAD
 router.put('/:id', auth, uploadMiddleware, async (req, res) => {
+=======
+router.put('/:id', auth, async (req, res) => {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
   try {
     console.log(
       'UPDATE TESTIMONIAL BODY:',
@@ -216,6 +258,7 @@ router.put('/:id', auth, uploadMiddleware, async (req, res) => {
       );
     }
 
+<<<<<<< HEAD
     // Image (optional)
     if (req.file) {
       updateData.image =
@@ -228,6 +271,14 @@ router.put('/:id', auth, uploadMiddleware, async (req, res) => {
       req.body.image !== ''
     ) {
       updateData.image = req.body.image;
+=======
+    // Image
+    if (
+      req.body.image !== undefined
+    ) {
+      updateData.image =
+        req.body.image;
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
     }
 
     // Country

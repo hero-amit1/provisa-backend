@@ -2,6 +2,7 @@ const express = require('express');
 const University = require('../../models/University');
 const auth = require('../../middleware/auth');
 
+<<<<<<< HEAD
 const multer = require('multer');
 
 const {
@@ -9,10 +10,24 @@ const {
 } = require('../../utils/cloudinaryStorage');
 
 const conditionalUpload = require('../../middleware/conditionalUpload');
+=======
+const dotenv = require('dotenv');
+
+const cloudinary = require('cloudinary').v2;
+
+const {
+  CloudinaryStorage,
+} = require('multer-storage-cloudinary');
+
+const multer = require('multer');
+
+dotenv.config();
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
 const router = express.Router();
 
 // ==============================
+<<<<<<< HEAD
 // CLOUDINARY STORAGE
 // ==============================
 
@@ -25,6 +40,48 @@ const storage = createCloudinaryStorage({
 // MULTER CONFIG
 // ==============================
 
+=======
+// CLOUDINARY CONFIG
+// ==============================
+
+cloudinary.config({
+  cloud_name:
+    process.env.CLOUDINARY_CLOUD_NAME,
+
+  api_key:
+    process.env.CLOUDINARY_API_KEY,
+
+  api_secret:
+    process.env.CLOUDINARY_API_SECRET,
+});
+
+// ==============================
+// MULTER + CLOUDINARY STORAGE
+// ==============================
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+
+  params: async (req, file) => ({
+    folder: 'universities',
+
+    allowed_formats: [
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+    ],
+
+    transformation: [
+      {
+        width: 1000,
+        crop: 'limit',
+      },
+    ],
+  }),
+});
+
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 const upload = multer({
   storage,
 
@@ -57,6 +114,7 @@ const upload = multer({
 });
 
 // ==============================
+<<<<<<< HEAD
 // MULTER MIDDLEWARE
 // ==============================
 
@@ -64,11 +122,42 @@ const uploadMiddleware =
   conditionalUpload(
     upload.single('image')
   );
+=======
+// IMAGE UPLOAD MIDDLEWARE
+// ==============================
+
+const uploadMiddleware = (
+  req,
+  res,
+  next
+) => {
+  upload.single('image')(
+    req,
+    res,
+    (err) => {
+      if (err) {
+        console.error(
+          'Upload error:',
+          err
+        );
+
+        return res.status(400).json({
+          success: false,
+          message: err.message,
+        });
+      }
+
+      next();
+    }
+  );
+};
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
 // ==============================
 // GET ALL UNIVERSITIES
 // ==============================
 
+<<<<<<< HEAD
 router.get(
   '/',
   auth,
@@ -98,6 +187,33 @@ router.get(
     }
   }
 );
+=======
+router.get('/', auth, async (req, res) => {
+  try {
+    const universities =
+      await University.find()
+        .sort({ createdAt: -1 })
+        .lean();
+
+    res.status(200).json({
+      success: true,
+      data: universities,
+    });
+  } catch (err) {
+    console.error(
+      'Get universities error:',
+      err
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        err.message ||
+        'Failed to fetch universities',
+    });
+  }
+});
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
 // ==============================
 // CREATE UNIVERSITY
@@ -142,17 +258,28 @@ router.post(
         });
       }
 
+<<<<<<< HEAD
       // Parse programs
+=======
+      // Parse programs array
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       let parsedPrograms = [];
 
       if (programs) {
         try {
           parsedPrograms =
+<<<<<<< HEAD
             typeof programs ===
             'string'
               ? JSON.parse(programs)
               : programs;
         } catch (err) {
+=======
+            typeof programs === 'string'
+              ? JSON.parse(programs)
+              : programs;
+        } catch {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
           parsedPrograms = [];
         }
       }
@@ -178,8 +305,12 @@ router.post(
           tuitionFee:
             tuitionFee || '',
 
+<<<<<<< HEAD
           intake:
             intake || '',
+=======
+          intake: intake || '',
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
           programs:
             parsedPrograms,
@@ -192,6 +323,7 @@ router.post(
             status || 'active',
 
           image: req.file
+<<<<<<< HEAD
             ? req.file.secure_url ||
               req.file.path ||
               req.file.url ||
@@ -201,12 +333,23 @@ router.post(
 
       const savedUniversity =
         await university.save();
+=======
+            ? req.file.path
+            : '',
+        });
+
+      await university.save();
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
       res.status(201).json({
         success: true,
         message:
           'University created successfully',
+<<<<<<< HEAD
         data: savedUniversity,
+=======
+        data: university,
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       });
     } catch (err) {
       console.error(
@@ -214,7 +357,11 @@ router.post(
         err
       );
 
+<<<<<<< HEAD
       res.status(500).json({
+=======
+      res.status(400).json({
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         success: false,
         message:
           err.message ||
@@ -247,9 +394,13 @@ router.put(
       const updateData = {};
 
       // Name
+<<<<<<< HEAD
       if (
         req.body.name !== undefined
       ) {
+=======
+      if (req.body.name !== undefined) {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         updateData.name =
           req.body.name.trim();
       }
@@ -264,9 +415,13 @@ router.put(
       }
 
       // City
+<<<<<<< HEAD
       if (
         req.body.city !== undefined
       ) {
+=======
+      if (req.body.city !== undefined) {
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         updateData.city =
           req.body.city;
       }
@@ -294,10 +449,16 @@ router.put(
         req.body.ranking !==
         undefined
       ) {
+<<<<<<< HEAD
         updateData.ranking =
           Number(
             req.body.ranking
           ) || 0;
+=======
+        updateData.ranking = Number(
+          req.body.ranking
+        );
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       }
 
       // Tuition Fee
@@ -325,16 +486,25 @@ router.put(
       ) {
         try {
           updateData.programs =
+<<<<<<< HEAD
             typeof req.body
               .programs ===
+=======
+            typeof req.body.programs ===
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
             'string'
               ? JSON.parse(
                   req.body.programs
                 )
               : req.body.programs;
+<<<<<<< HEAD
         } catch (err) {
           updateData.programs =
             [];
+=======
+        } catch {
+          updateData.programs = [];
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         }
       }
 
@@ -362,10 +532,14 @@ router.put(
       // Image
       if (req.file) {
         updateData.image =
+<<<<<<< HEAD
           req.file.secure_url ||
           req.file.path ||
           req.file.url ||
           '';
+=======
+          req.file.path;
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
       }
 
       const university =
@@ -398,7 +572,11 @@ router.put(
         err
       );
 
+<<<<<<< HEAD
       res.status(500).json({
+=======
+      res.status(400).json({
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
         success: false,
         message:
           err.message ||
@@ -451,6 +629,7 @@ router.delete(
   }
 );
 
+<<<<<<< HEAD
 // ==============================
 // MULTER ERROR HANDLER
 // ==============================
@@ -491,4 +670,6 @@ router.use(
   }
 );
 
+=======
+>>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 module.exports = router;

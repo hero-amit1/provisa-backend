@@ -3,10 +3,6 @@ const Settings = require('../models/Settings.js');
 
 const router = express.Router();
 
-// ======================================
-// GET PUBLIC SETTINGS
-// Used by frontend footer/contact pages
-// ======================================
 router.get('/', async (req, res) => {
   try {
     const settings = await Settings.getSingleton();
@@ -18,18 +14,19 @@ router.get('/', async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: settings,
     });
   } catch (err) {
     console.error('Get public settings error:', err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: err.message || 'Failed to fetch settings',
+      message: err?.message || 'Failed to fetch settings',
     });
   }
 });
 
 module.exports = router;
+

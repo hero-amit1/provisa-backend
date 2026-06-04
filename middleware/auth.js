@@ -2,11 +2,8 @@ const jwt = require('jsonwebtoken');
 
 const auth = (req, res, next) => {
   try {
-    const authHeader = req.headers?.authorization;
+    const authHeader = req.header('Authorization');
 
-    // ==============================
-    // CHECK HEADER
-    // ==============================
     if (!authHeader) {
       return res.status(401).json({
         success: false,
@@ -14,9 +11,6 @@ const auth = (req, res, next) => {
       });
     }
 
-    // ==============================
-    // CHECK FORMAT
-    // ==============================
     if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
@@ -24,23 +18,15 @@ const auth = (req, res, next) => {
       });
     }
 
-    // ==============================
-    // EXTRACT TOKEN
-    // ==============================
-    const token = authHeader.split(' ')[1];
-
+    const token = authHeader.replace('Bearer ', '').trim();
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'Token missing.',
+        message: 'Token is missing.',
       });
     }
 
-    // ==============================
-    // CHECK JWT SECRET
-    // ==============================
     const secret = process.env.JWT_SECRET;
-
     if (!secret) {
       console.error('❌ JWT_SECRET is missing in environment variables');
       return res.status(500).json({
@@ -49,26 +35,11 @@ const auth = (req, res, next) => {
       });
     }
 
-    // ==============================
-    // VERIFY TOKEN
-    // ==============================
     const decoded = jwt.verify(token, secret);
-
-    if (!decoded) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token.',
-      });
-    }
-
-    // ==============================
-    // ATTACH USER
-    // ==============================
     req.user = decoded;
-
-    next();
+    return next();
   } catch (err) {
-    console.error('❌ Auth middleware error:', err.message);
+    console.error('❌ Auth middleware error:', err?.message || err);
 
     return res.status(401).json({
       success: false,
@@ -78,3 +49,4 @@ const auth = (req, res, next) => {
 };
 
 module.exports = auth;
+
