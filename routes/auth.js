@@ -68,6 +68,27 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.get('/', (req, res) => {
+  return res.json({
+    success: true,
+    message: 'Auth route is active. Use POST /api/auth/login or POST /api/auth/register.',
+  });
+});
+
+router.get('/login', (req, res) => {
+  return res.json({
+    success: true,
+    message: 'Use POST /api/auth/login with JSON { email, password } to log in.',
+  });
+});
+
+router.get('/register', (req, res) => {
+  return res.json({
+    success: true,
+    message: 'Use POST /api/auth/register with JSON { email, password, role? } to register.',
+  });
+});
+
 router.post('/register', async (req, res) => {
   try {
     const { email, password, role } = req.body;
