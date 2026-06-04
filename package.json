@@ -9,7 +9,8 @@
     "start": "node server.js",
     "seed-admin": "node seedAdmin.js",
     "build:frontend": "node ./deploy/build-frontend-into-backend-dist.cjs",
-    "build": "npm run build:frontend"
+    "build": "npm run build:frontend",
+    "start:prod": "node server-fallback.js"
   },
   "keywords": [
     "mern",

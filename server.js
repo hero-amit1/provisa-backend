@@ -20,6 +20,8 @@ app.set('trust proxy', 1);
 // ==============================
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI;
+
+// ✅ UPDATED CLIENT URL SUPPORT
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // ==============================
@@ -39,6 +41,7 @@ fs.mkdirSync(uploadsUniversitiesDir, { recursive: true });
 // SECURITY
 // ==============================
 app.use(helmet());
+
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -52,7 +55,7 @@ app.use(
 app.use(morgan('dev'));
 
 // ==============================
-// CORS
+// CORS (UPDATED)
 // ==============================
 app.use(
   cors({
@@ -67,16 +70,17 @@ app.use(
         'http://localhost:8080',
         'http://localhost:8081',
         'http://localhost:4000',
+        'https://api.provisa.com.np',
       ];
 
-      // Render deployments often use *.onrender.com
+      // allow Render deployments
       const isRender = origin.endsWith('.onrender.com');
 
       if (allowedOrigins.includes(origin) || isRender) {
         return callback(null, true);
       }
 
-      // Don’t crash the server because of CORS.
+      // allow but don’t block (safe fallback)
       return callback(null, true);
     },
     credentials: true,
@@ -100,7 +104,9 @@ app.use('/uploads', express.static(uploadsRoot));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/admin-test', (req, res) => res.send('✅ Admin system working'));
 
-// Diagnostic (useful for deploy debugging)
+// ==============================
+// DIAGNOSTIC
+// ==============================
 app.get('/__diag/root', (req, res) => {
   const distPath = path.join(__dirname, 'dist');
   const distIndexPath = path.join(distPath, 'index.html');
@@ -147,22 +153,39 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==============================
-// FRONTEND (dist) - SPA fallback
+// FRONTEND (SPA fallback)
 // ==============================
-const distPath = path.join(__dirname, 'dist');
-const distIndexPath = path.join(distPath, 'index.html');
+function resolveDistIndexPath() {
+  const candidates = [
+    path.join(__dirname, 'dist', 'index.html'),
+    path.join(__dirname, '..', 'frontend', 'dist', 'index.html'),
+    path.join(__dirname, 'public', 'index.html'),
+  ];
 
-if (fs.existsSync(distIndexPath)) {
-  app.use(express.static(distPath));
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      return {
+        distIndexPath: c,
+        distRoot: path.dirname(c),
+      };
+    }
+  }
+  return null;
+}
+
+const resolved = resolveDistIndexPath();
+
+if (resolved) {
+  app.use(express.static(resolved.distRoot));
 
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
-    res.sendFile(distIndexPath);
+    res.sendFile(resolved.distIndexPath);
   });
 } else {
-  app.get('/', (req, res) => {
+  app.get('*', (req, res) => {
     res.status(503).send(
-      'Frontend build not found on server. Expected backend/dist/index.html'
+      'Frontend build not found on server. Expected backend/dist/index.html (or fallback: frontend/dist/index.html)'
     );
   });
 }
@@ -181,7 +204,6 @@ app.use((req, res) => {
 // GLOBAL ERROR HANDLER
 // ==============================
 app.use((err, req, res, next) => {
-  // eslint-disable-line no-unused-vars
   console.error('❌ Error:', err?.message || err);
 
   res.status(500).json({
@@ -194,14 +216,14 @@ app.use((err, req, res, next) => {
 // MONGODB CONNECTION
 // ==============================
 if (!MONGODB_URI) {
-  console.error('❌ MONGODB_URI missing. API requests requiring DB will fail.');
+  console.error('❌ MONGODB_URI missing');
 } else {
   mongoose
     .connect(MONGODB_URI)
     .then(() => console.log('✅ MongoDB connected'))
-    .catch((err) => {
-      console.error('❌ MongoDB error:', err?.message || err);
-    });
+    .catch((err) =>
+      console.error('❌ MongoDB error:', err?.message || err)
+    );
 }
 
 // ==============================
@@ -210,4 +232,3 @@ if (!MONGODB_URI) {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
-
