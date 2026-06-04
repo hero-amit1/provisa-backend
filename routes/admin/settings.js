@@ -2,757 +2,163 @@ const express = require('express');
 const Settings = require('../../models/Settings');
 const auth = require('../../middleware/auth');
 
-<<<<<<< HEAD
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+require('dotenv').config();
 
-const {
-  createCloudinaryStorage,
-} = require('../../utils/cloudinaryStorage');
-
-const conditionalUpload = require('../../middleware/conditionalUpload');
-
-=======
->>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 const router = express.Router();
 
-// ======================================
+// ==============================
 // HELPERS
-// ======================================
-
+// ==============================
 const normalizeString = (value) => {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
+  if (typeof value !== 'string') return undefined;
   return value.trim();
 };
 
-const validateEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    email
-  );
-};
+const validateEmail = (email) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-const validatePhone = (phone) => {
-<<<<<<< HEAD
-  return /^[0-9+\-()\s]{5,}$/.test(
-    phone
-  );
-};
+const validatePhone = (phone) =>
+  /^[0-9+\-()\s]{5,}$/.test(phone);
 
-// ======================================
-// CLOUDINARY STORAGE
-// ======================================
+// ==============================
+// CLOUDINARY CONFIG
+// ==============================
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const storage =
-  createCloudinaryStorage({
+// ==============================
+// STORAGE
+// ==============================
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async () => ({
     folder: 'settings',
-    width: 400,
-  });
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ width: 400, crop: 'limit' }],
+  }),
+});
 
-// ======================================
-// MULTER CONFIG
-// ======================================
-
+// ==============================
+// MULTER
+// ==============================
 const upload = multer({
   storage,
-
-  limits: {
-    fileSize:
-      2 * 1024 * 1024,
-  },
-
-  fileFilter: (
-    req,
-    file,
-    cb
-  ) => {
-    const allowedMimeTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/webp',
-    ];
-
-    if (
-      !allowedMimeTypes.includes(
-        file.mimetype
-      )
-    ) {
-      return cb(
-        new Error(
-          'Only jpg, jpeg, png, and webp images are allowed'
-        )
-      );
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Only jpg, jpeg, png, webp allowed'));
     }
-
     cb(null, true);
   },
 });
 
-// ======================================
-// CONDITIONAL UPLOAD
-// ======================================
-
-const uploadMiddleware =
-  conditionalUpload(
-    upload.single('logo')
-  );
-
-// ======================================
-// GET SETTINGS
-// ======================================
-
-router.get(
-  '/',
-  auth,
-  async (req, res) => {
-    try {
-      const settings =
-        await Settings.getSingleton();
-
-      res.status(200).json({
-        success: true,
-        data: settings,
-      });
-    } catch (err) {
-      console.error(
-        'Get admin settings error:',
-        err
-      );
-
-      res.status(500).json({
+// ==============================
+// UPLOAD MIDDLEWARE
+// ==============================
+const uploadMiddleware = (req, res, next) => {
+  upload.single('logo')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
         success: false,
-        message:
-          err.message ||
-          'Failed to fetch settings',
+        message: err.message,
       });
     }
-  }
-);
-
-// ======================================
-// UPDATE SETTINGS
-// ======================================
-
-router.put(
-  '/',
-  auth,
-  uploadMiddleware,
-  async (req, res) => {
-    try {
-      console.log(
-        'SETTINGS UPDATE BODY:',
-        req.body
-      );
-
-      console.log(
-        'SETTINGS UPDATE FILE:',
-        req.file
-      );
-
-      // Handle invalid body
-      if (
-        !req.body ||
-        typeof req.body !==
-          'object' ||
-        Array.isArray(req.body)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'Invalid request body',
-        });
-      }
-
-      const allowedKeys = [
-        'companyName',
-        'email',
-        'phone',
-        'address',
-        'facebook',
-        'instagram',
-        'linkedin',
-        'whatsapp',
-      ];
-
-      const incoming = {};
-
-      // Only allow safe fields
-      allowedKeys.forEach(
-        (key) => {
-          if (
-            req.body[key] !==
-            undefined
-          ) {
-            incoming[key] =
-              req.body[key];
-          }
-        }
-      );
-
-      // Logo upload
-      if (req.file) {
-        incoming.logo =
-          req.file.secure_url ||
-          req.file.path ||
-          req.file.url ||
-          '';
-      }
-
-      const settings =
-        await Settings.getSingleton();
-
-      let changed = false;
-
-      // ======================================
-      // COMPANY NAME
-      // ======================================
-
-      const companyName =
-        normalizeString(
-          incoming.companyName
-        );
-
-      if (
-        typeof companyName ===
-        'string'
-      ) {
-        settings.companyName =
-          companyName;
-
-        changed = true;
-      }
-
-      // ======================================
-      // EMAIL
-      // ======================================
-
-      const email =
-        normalizeString(
-          incoming.email
-        );
-
-      if (
-        typeof email ===
-        'string'
-      ) {
-        if (
-          email &&
-          !validateEmail(email)
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              'Invalid email format',
-          });
-        }
-
-        settings.email =
-          email;
-
-        changed = true;
-      }
-
-      // ======================================
-      // PHONE
-      // ======================================
-
-      const phone =
-        normalizeString(
-          incoming.phone
-        );
-
-      if (
-        typeof phone ===
-        'string'
-      ) {
-        if (
-          phone &&
-          !validatePhone(phone)
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              'Invalid phone format',
-          });
-        }
-
-        settings.phone =
-          phone;
-
-        changed = true;
-      }
-
-      // ======================================
-      // ADDRESS
-      // ======================================
-
-      const address =
-        normalizeString(
-          incoming.address
-        );
-
-      if (
-        typeof address ===
-        'string'
-      ) {
-        settings.address =
-          address;
-
-        changed = true;
-      }
-
-      // ======================================
-      // LOGO
-      // ======================================
-
-      const logo =
-        normalizeString(
-          incoming.logo
-        );
-
-      if (
-        typeof logo ===
-        'string'
-      ) {
-        settings.logo =
-          logo;
-
-        changed = true;
-      }
-
-      // ======================================
-      // FACEBOOK
-      // ======================================
-
-      const facebook =
-        normalizeString(
-          incoming.facebook
-        );
-
-      if (
-        typeof facebook ===
-        'string'
-      ) {
-        settings.facebook =
-          facebook;
-
-        changed = true;
-      }
-
-      // ======================================
-      // INSTAGRAM
-      // ======================================
-
-      const instagram =
-        normalizeString(
-          incoming.instagram
-        );
-
-      if (
-        typeof instagram ===
-        'string'
-      ) {
-        settings.instagram =
-          instagram;
-
-        changed = true;
-      }
-
-      // ======================================
-      // LINKEDIN
-      // ======================================
-
-      const linkedin =
-        normalizeString(
-          incoming.linkedin
-        );
-
-      if (
-        typeof linkedin ===
-        'string'
-      ) {
-        settings.linkedin =
-          linkedin;
-
-        changed = true;
-      }
-
-      // ======================================
-      // WHATSAPP
-      // ======================================
-
-      const whatsapp =
-        normalizeString(
-          incoming.whatsapp
-        );
-
-      if (
-        typeof whatsapp ===
-        'string'
-      ) {
-        settings.whatsapp =
-          whatsapp;
-
-        changed = true;
-      }
-
-      // ======================================
-      // NO CHANGES
-      // ======================================
-
-      if (!changed) {
-        return res.status(200).json({
-          success: true,
-          message:
-            'No changes detected',
-          data: settings,
-        });
-      }
-
-      // ======================================
-      // SAVE
-      // ======================================
-
-      await settings.save();
-
-      res.status(200).json({
-        success: true,
-        message:
-          'Settings updated successfully',
-        data: settings,
-      });
-    } catch (err) {
-      console.error(
-        'Update settings error:',
-        err
-      );
-
-      res.status(500).json({
-        success: false,
-        message:
-          err.message ||
-          'Failed to update settings',
-      });
-    }
-  }
-);
-
-// ======================================
-// MULTER ERROR HANDLER
-// ======================================
-
-router.use(
-  (err, req, res, next) => {
-    if (
-      err instanceof
-      multer.MulterError
-    ) {
-      if (
-        err.code ===
-        'LIMIT_FILE_SIZE'
-=======
-  return /^[0-9+\-()\s]{5,}$/.test(phone);
+    next();
+  });
 };
 
-// ======================================
-// GET SETTINGS (ADMIN)
-// ======================================
-
+// ==============================
+// GET SETTINGS
+// ==============================
 router.get('/', auth, async (req, res) => {
   try {
-    const settings =
-      await Settings.getSingleton();
-
-    res.status(200).json({
-      success: true,
-      data: settings,
-    });
+    const settings = await Settings.getSingleton();
+    res.json({ success: true, data: settings });
   } catch (err) {
-    console.error(
-      'Get admin settings error:',
-      err
-    );
-
     res.status(500).json({
       success: false,
-      message:
-        err.message ||
-        'Failed to fetch settings',
+      message: err.message || 'Failed to fetch settings',
     });
   }
 });
 
-// ======================================
-// UPDATE SETTINGS (ADMIN)
-// ======================================
-
-router.put('/', auth, async (req, res) => {
+// ==============================
+// UPDATE SETTINGS
+// ==============================
+router.put('/', auth, uploadMiddleware, async (req, res) => {
   try {
-    console.log(
-      'SETTINGS UPDATE BODY:',
-      req.body
-    );
+    const incoming = req.body || {};
 
-    // Handle invalid body
-    if (
-      !req.body ||
-      typeof req.body !== 'object' ||
-      Array.isArray(req.body)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid request body',
-      });
+    if (req.file) {
+      incoming.logo = req.file.path;
     }
 
-    // Allowed fields
-    const allowedKeys = [
-      'companyName',
-      'email',
-      'phone',
-      'address',
-      'logo',
-      'facebook',
-      'instagram',
-      'linkedin',
-      'whatsapp',
-    ];
-
-    const incoming = {};
-
-    // Filter allowed fields only
-    allowedKeys.forEach((key) => {
-      if (req.body[key] !== undefined) {
-        incoming[key] = req.body[key];
-      }
-    });
-
-    // Debug log
-    console.log(
-      'FILTERED SETTINGS:',
-      incoming
-    );
-
-    const settings =
-      await Settings.getSingleton();
-
+    const settings = await Settings.getSingleton();
     let changed = false;
 
-    // ======================================
-    // COMPANY NAME
-    // ======================================
-
-    const companyName = normalizeString(
-      incoming.companyName
-    );
-
-    if (typeof companyName === 'string') {
-      settings.companyName =
-        companyName;
-
-      changed = true;
-    }
-
-    // ======================================
-    // EMAIL
-    // ======================================
-
-    const email = normalizeString(
-      incoming.email
-    );
-
-    if (typeof email === 'string') {
-      if (
-        email &&
-        !validateEmail(email)
->>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-<<<<<<< HEAD
-            'File size too large. Maximum size is 2MB',
-        });
+    const setField = (key, transform = (v) => v) => {
+      if (incoming[key] !== undefined) {
+        const value = transform(incoming[key]);
+        if (value !== undefined) {
+          settings[key] = value;
+          changed = true;
+        }
       }
+    };
 
-      return res.status(400).json({
-        success: false,
-        message:
-          err.message,
-      });
-    }
+    setField('companyName', normalizeString);
 
-    if (err) {
-      return res.status(400).json({
-        success: false,
-        message:
-          err.message ||
-          'Upload failed',
-      });
-    }
-
-    next();
-  }
-);
-=======
-            'Invalid email format',
-        });
+    setField('email', (v) => {
+      const val = normalizeString(v);
+      if (val && !validateEmail(val)) {
+        throw new Error('Invalid email format');
       }
+      return val;
+    });
 
-      settings.email = email;
-
-      changed = true;
-    }
-
-    // ======================================
-    // PHONE
-    // ======================================
-
-    const phone = normalizeString(
-      incoming.phone
-    );
-
-    if (typeof phone === 'string') {
-      if (
-        phone &&
-        !validatePhone(phone)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'Invalid phone format',
-        });
+    setField('phone', (v) => {
+      const val = normalizeString(v);
+      if (val && !validatePhone(val)) {
+        throw new Error('Invalid phone format');
       }
+      return val;
+    });
 
-      settings.phone = phone;
-
-      changed = true;
-    }
-
-    // ======================================
-    // ADDRESS
-    // ======================================
-
-    const address = normalizeString(
-      incoming.address
-    );
-
-    if (typeof address === 'string') {
-      settings.address = address;
-
-      changed = true;
-    }
-
-    // ======================================
-    // LOGO
-    // ======================================
-
-    const logo = normalizeString(
-      incoming.logo
-    );
-
-    if (typeof logo === 'string') {
-      settings.logo = logo;
-
-      changed = true;
-    }
-
-    // ======================================
-    // FACEBOOK
-    // ======================================
-
-    const facebook = normalizeString(
-      incoming.facebook
-    );
-
-    if (typeof facebook === 'string') {
-      settings.facebook = facebook;
-
-      changed = true;
-    }
-
-    // ======================================
-    // INSTAGRAM
-    // ======================================
-
-    const instagram = normalizeString(
-      incoming.instagram
-    );
-
-    if (typeof instagram === 'string') {
-      settings.instagram = instagram;
-
-      changed = true;
-    }
-
-    // ======================================
-    // LINKEDIN
-    // ======================================
-
-    const linkedin = normalizeString(
-      incoming.linkedin
-    );
-
-    if (typeof linkedin === 'string') {
-      settings.linkedin = linkedin;
-
-      changed = true;
-    }
-
-    // ======================================
-    // WHATSAPP
-    // ======================================
-
-    const whatsapp = normalizeString(
-      incoming.whatsapp
-    );
-
-    if (typeof whatsapp === 'string') {
-      settings.whatsapp = whatsapp;
-
-      changed = true;
-    }
-
-    // ======================================
-    // NO CHANGES
-    // ======================================
+    setField('address', normalizeString);
+    setField('logo', normalizeString);
+    setField('facebook', normalizeString);
+    setField('instagram', normalizeString);
+    setField('linkedin', normalizeString);
+    setField('whatsapp', normalizeString);
 
     if (!changed) {
-      return res.status(200).json({
+      return res.json({
         success: true,
         message: 'No changes detected',
         data: settings,
       });
     }
 
-    // ======================================
-    // SAVE SETTINGS
-    // ======================================
-
     await settings.save();
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message:
-        'Settings updated successfully',
+      message: 'Settings updated successfully',
       data: settings,
     });
   } catch (err) {
-    console.error(
-      'Update settings error:',
-      err
-    );
-
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      message:
-        err.message ||
-        'Failed to update settings',
+      message: err.message || 'Failed to update settings',
     });
   }
 });
->>>>>>> 9acc1e0ae2f4d9d0826f872a87b31cc47168e2fb
 
 module.exports = router;
