@@ -14,6 +14,7 @@ const app = express();
 
 // cPanel / Render compatibility
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 // ==============================
 // ENV
@@ -43,7 +44,7 @@ app.use(helmet());
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 200,
   })
 );
 
@@ -53,31 +54,31 @@ app.use(
 app.use(morgan('dev'));
 
 // ==============================
-// CORS (SAFE FIXED)
+// CORS (PRODUCTION SAFE)
 // ==============================
+const allowedOrigins = [
+  CLIENT_URL,
+  'https://provisa.com.np',
+  'https://www.provisa.com.np',
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'http://localhost:8081',
+];
+
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
 
-      const allowedOrigins = [
-        CLIENT_URL,
-        'https://provisa.com.np',
-        'https://www.provisa.com.np',
-        'http://localhost:5173',
-        'http://localhost:8080',
-        'http://localhost:8081',
-        'http://localhost:4000',
-        'https://api.provisa.com.np',
-      ];
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.onrender.com');
 
-      const isRender = origin && origin.endsWith('.onrender.com');
-
-      if (allowedOrigins.includes(origin) || isRender) {
+      if (isAllowed) {
         return callback(null, true);
       }
 
-      return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
   })
@@ -90,7 +91,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ==============================
-// STATIC FILES (ONLY UPLOADS)
+// STATIC FILES
 // ==============================
 app.use('/uploads', express.static(uploadsRoot));
 
@@ -99,12 +100,29 @@ app.use('/uploads', express.static(uploadsRoot));
 // ==============================
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
-app.get('/admin-test', (req, res) =>
-  res.send('✅ Admin system working')
-);
+app.get('/admin-test', (req, res) => {
+  res.send('✅ Admin system working');
+});
 
 // ==============================
-// DIAGNOSTIC (NO FRONTEND)
+// HEALTH ROUTES
+// ==============================
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    mongodb: mongoose.connection.readyState === 1,
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    mongodb: mongoose.connection.readyState === 1,
+  });
+});
+
+// ==============================
+// DIAGNOSTIC
 // ==============================
 app.get('/__diag/root', (req, res) => {
   res.status(200).json({
@@ -136,17 +154,7 @@ app.use('/api/testimonials', require('./routes/testimonials'));
 app.use('/api/universities', require('./routes/universities'));
 
 // ==============================
-// HEALTH CHECK
-// ==============================
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    mongodb: mongoose.connection.readyState === 1,
-  });
-});
-
-// ==============================
-// ROOT ROUTE (API ONLY)
+// ROOT ROUTE
 // ==============================
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -168,7 +176,7 @@ app.use((req, res) => {
 });
 
 // ==============================
-// GLOBAL ERROR HANDLER
+// ERROR HANDLER
 // ==============================
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err?.message || err);
@@ -180,7 +188,7 @@ app.use((err, req, res, next) => {
 });
 
 // ==============================
-// MONGODB CONNECTION
+// MONGODB CONNECT
 // ==============================
 if (!MONGODB_URI) {
   console.error('❌ MONGODB_URI missing');
