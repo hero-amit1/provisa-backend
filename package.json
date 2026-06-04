@@ -6,9 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js",
+    "start": "node server-fallback.js",
     "seed-admin": "node seedAdmin.js",
-    "build:frontend": "node ./deploy/build-frontend-into-backend-dist.cjs",
+    "build:frontend": "node ./build-frontend-to-backend-dist.js",
     "build": "npm run build:frontend",
     "start:prod": "node server-fallback.js"
   },

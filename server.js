@@ -20,8 +20,6 @@ app.set('trust proxy', 1);
 // ==============================
 const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI;
-
-// ✅ UPDATED CLIENT URL SUPPORT
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // ==============================
@@ -55,7 +53,7 @@ app.use(
 app.use(morgan('dev'));
 
 // ==============================
-// CORS (UPDATED)
+// CORS (SAFE FIXED)
 // ==============================
 app.use(
   cors({
@@ -73,14 +71,12 @@ app.use(
         'https://api.provisa.com.np',
       ];
 
-      // allow Render deployments
-      const isRender = origin.endsWith('.onrender.com');
+      const isRender = origin && origin.endsWith('.onrender.com');
 
       if (allowedOrigins.includes(origin) || isRender) {
         return callback(null, true);
       }
 
-      // allow but don’t block (safe fallback)
       return callback(null, true);
     },
     credentials: true,
@@ -94,7 +90,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ==============================
-// STATIC FILES
+// STATIC FILES (ONLY UPLOADS)
 // ==============================
 app.use('/uploads', express.static(uploadsRoot));
 
@@ -102,18 +98,16 @@ app.use('/uploads', express.static(uploadsRoot));
 // BASIC ROUTES
 // ==============================
 app.get('/favicon.ico', (req, res) => res.status(204).end());
-app.get('/admin-test', (req, res) => res.send('✅ Admin system working'));
+
+app.get('/admin-test', (req, res) =>
+  res.send('✅ Admin system working')
+);
 
 // ==============================
-// DIAGNOSTIC
+// DIAGNOSTIC (NO FRONTEND)
 // ==============================
 app.get('/__diag/root', (req, res) => {
-  const distPath = path.join(__dirname, 'dist');
-  const distIndexPath = path.join(distPath, 'index.html');
-
   res.status(200).json({
-    distExists: fs.existsSync(distPath),
-    distIndexExists: fs.existsSync(distIndexPath),
     mongoUriConfigured: !!MONGODB_URI,
     mongodbReady: mongoose.connection.readyState === 1,
   });
@@ -138,7 +132,6 @@ app.use('/settings', require('./routes/settings'));
 app.use('/api/blogs', require('./routes/blogs'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/team', require('./routes/team'));
-
 app.use('/api/testimonials', require('./routes/testimonials'));
 app.use('/api/universities', require('./routes/universities'));
 
@@ -153,42 +146,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==============================
-// FRONTEND (SPA fallback)
+// ROOT ROUTE (API ONLY)
 // ==============================
-function resolveDistIndexPath() {
-  const candidates = [
-    path.join(__dirname, 'dist', 'index.html'),
-    path.join(__dirname, '..', 'frontend', 'dist', 'index.html'),
-    path.join(__dirname, 'public', 'index.html'),
-  ];
-
-  for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      return {
-        distIndexPath: c,
-        distRoot: path.dirname(c),
-      };
-    }
-  }
-  return null;
-}
-
-const resolved = resolveDistIndexPath();
-
-if (resolved) {
-  app.use(express.static(resolved.distRoot));
-
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    res.sendFile(resolved.distIndexPath);
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    service: 'ProVisa Backend API',
+    status: 'running',
+    mongodb: mongoose.connection.readyState === 1,
   });
-} else {
-  app.get('*', (req, res) => {
-    res.status(503).send(
-      'Frontend build not found on server. Expected backend/dist/index.html (or fallback: frontend/dist/index.html)'
-    );
-  });
-}
+});
 
 // ==============================
 // 404 HANDLER
