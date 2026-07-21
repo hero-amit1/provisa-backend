@@ -8,9 +8,8 @@ const router = express.Router();
 // =============================
 router.get('/', async (req, res) => {
   try {
-    const blogs = await Blog.find()
+    const blogs = await Blog.find({ status: 'published' })
       .sort({ createdAt: -1 })
-      .limit(12)
       .lean();
 
     res.status(200).json(blogs);
